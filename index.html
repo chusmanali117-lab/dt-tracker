@@ -51,8 +51,6 @@ nav button.on{color:var(--pri)}
 .chips button{background:var(--card);color:var(--tx);border:1px solid var(--bd);padding:8px 14px;white-space:nowrap;border-radius:20px}
 .chips button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
 h2{font-size:17px;margin:16px 0 4px}
-#lock{position:fixed;inset:0;z-index:50;background:linear-gradient(135deg,#1d4ed8,#4f46e5);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;gap:10px;padding:30px}
-#lock input{max-width:220px;text-align:center;font-size:28px;letter-spacing:10px}
 </style>
 </head>
 <body>
@@ -283,7 +281,6 @@ function backupTab(){
   setTimeout(()=>{
     $('#b_sync').onclick=()=>syncNow(true);$('#b_mail').onclick=emailBackup;$('#b_csv').onclick=shareCsv;
     $('#b_rest').onchange=e=>e.target.files[0]&&restoreFile(e.target.files[0]);
-    $('#b_pin').onclick=setPin;const pr=$('#b_pinx');if(pr)pr.onclick=clearPin;
     $('#b_code').onchange=e=>e.target.value.trim()&&setupCode(e.target.value);
     $('#b_em').onchange=e=>{db.email=e.target.value.trim();save(false);render()};
     $('#b_cur').onchange=e=>{db.cur=e.target.value.trim()||'SAR';save(false);render()};
@@ -298,7 +295,6 @@ function backupTab(){
   <button id="b_mail" style="width:100%">📧 Email backup to myself</button></div>
   <div class="card"><b>Excel / CSV report</b><div class="mut">All entries, opens in Excel or Google Sheets.</div><br><button id="b_csv" class="ghost" style="width:100%">Export CSV</button></div>
   <div class="card"><b>Restore from backup</b><div class="mut">New phone or lost data? Download the .json from your Gmail, then pick it here.</div><br><input type="file" id="b_rest" accept=".json,application/json"></div>
-  <div class="card"><b>🔒 PIN lock</b><div class="mut">Ask for a PIN when the app opens (this device only).</div><br><button id="b_pin" class="ghost" style="width:100%">${getPin()?'Change PIN':'Set PIN'}</button>${getPin()?'<button id="b_pinx" class="ghost" style="width:100%;margin-top:8px">Remove PIN</button>':''}</div>
   <div class="card"><b>My backup email</b><input id="b_em" type="email" value="${esc(db.email||'')}" placeholder="you@gmail.com"></div>
   <div class="card"><b>Currency label</b><input id="b_cur" value="${esc(db.cur)}"></div>
   <p class="mut">Data always works offline on this phone. Daily copies are also kept in your Drive. Still email a backup weekly.</p>`;
@@ -334,23 +330,7 @@ function setupCode(v){
 }
 
 
-/* ---------- PIN lock ---------- */
-const pinHash=p=>{let h=5381;for(const c of 'dt'+p)h=(h*33^c.charCodeAt(0))>>>0;return String(h)};
-const getPin=()=>{try{return localStorage.getItem('dt_pin')}catch(e){return null}};
-function showLock(){
-  if(!getPin()||document.getElementById('lock'))return;
-  const d=document.createElement('div');d.id='lock';
-  d.innerHTML='<div style="font-size:46px">🔒</div><div style="font-weight:700;font-size:18px">DT Tracker</div><input id="lp" type="password" inputmode="numeric" maxlength="8" placeholder="PIN"><div id="le" style="min-height:20px"></div>';
-  document.body.appendChild(d);const i=d.querySelector('#lp');i.focus();
-  i.oninput=()=>{if(pinHash(i.value)===getPin())d.remove();else if(i.value.length>=8){d.querySelector('#le').textContent='Wrong PIN';i.value=''}};
-}
-function setPin(){const p=prompt('Choose a PIN (4 to 8 digits). Leave empty to cancel.');if(!p)return;if(!/^\d{4,8}$/.test(p))return alert('Use 4 to 8 digits');try{localStorage.setItem('dt_pin',pinHash(p))}catch(e){}alert('PIN set ✔');render()}
-function clearPin(){const p=prompt('Enter current PIN to remove the lock');if(p&&pinHash(p)===getPin()){try{localStorage.removeItem('dt_pin')}catch(e){}alert('PIN removed');render()}else if(p)alert('Wrong PIN')}
-let hidAt=0;
-document.addEventListener('visibilitychange',()=>{if(document.hidden)hidAt=Date.now();else if(hidAt&&Date.now()-hidAt>60000)showLock()});
-
 /* ---------- boot ---------- */
-showLock();
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;view=null;render()});
 $('#fab').onclick=()=>entrySheet(null,view);
 render();
