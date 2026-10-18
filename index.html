@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>DT Advance Tracker</title>
+<style>
+:root{--bg:#f3f5f7;--card:#fff;--tx:#17202a;--mut:#6b7785;--pri:#0f766e;--red:#c0392b;--grn:#1e8449;--bd:#e1e6ea}
+@media(prefers-color-scheme:dark){:root{--bg:#10151a;--card:#1a2129;--tx:#e8edf1;--mut:#93a0ad;--pri:#2bb3a5;--red:#ff7a6b;--grn:#5fd18a;--bd:#2a343e}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px system-ui,sans-serif;padding-bottom:84px}
+header{background:var(--pri);color:#fff;padding:16px;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:15px;font-weight:600;opacity:.9}
+header .big{font-size:30px;font-weight:700;margin:2px 0}
+header .sub{font-size:13px;opacity:.9}
+main{padding:12px 16px;max-width:640px;margin:auto}
+input,select,textarea,button{font:inherit}
+input,select,textarea{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);margin:4px 0 10px}
+button{border:0;border-radius:10px;padding:12px 16px;background:var(--pri);color:#fff;font-weight:600}
+button.ghost{background:transparent;color:var(--pri);border:1px solid var(--pri)}
+button.danger{background:var(--red)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin:8px 0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mut{color:var(--mut);font-size:13px}
+.owe{color:var(--red);font-weight:700}.clr{color:var(--grn);font-weight:700}
+.team{cursor:pointer}
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bd);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;color:var(--mut);border-radius:0;padding:14px 4px;font-size:13px}
+nav button.on{color:var(--pri)}
+.fab{position:fixed;right:18px;bottom:78px;width:60px;height:60px;border-radius:30px;font-size:32px;padding:0;box-shadow:0 4px 12px #0005;z-index:6}
+.sheet{position:fixed;inset:0;background:#0008;z-index:10;display:flex;align-items:flex-end}
+.sheet>div{background:var(--bg);width:100%;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px;max-width:640px;margin:auto}
+.seg{display:flex;gap:8px;margin-bottom:10px}
+.seg button{flex:1;background:var(--card);color:var(--tx);border:2px solid var(--bd)}
+.seg button.give.on{border-color:var(--red);background:var(--red);color:#fff}
+.seg button.ret.on{border-color:var(--grn);background:var(--grn);color:#fff}
+.banner{background:#fff3cd;color:#664d03;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px}
+.chips{display:flex;gap:8px;overflow:auto;margin-bottom:6px}
+.chips button{background:var(--card);color:var(--tx);border:1px solid var(--bd);padding:8px 12px;white-space:nowrap}
+.chips button.on{background:var(--pri);color:#fff}
+h2{font-size:17px;margin:14px 0 4px}
+</style>
+</head>
+<body>
+<header id="hd"></header>
+<main id="main"></main>
+<button class="fab" id="fab" aria-label="Add entry">+</button>
+<nav>
+  <button data-t="teams">👥<br>Teams</button>
+  <button data-t="log">🧾<br>Activity</button>
+  <button data-t="backup">☁️<br>Backup</button>
+</nav>
+<div id="modal"></div>
+
+<script>
+const KEY='dt_adv_v1';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const fmt=n=>(Math.round(n*100)/100).toLocaleString('en-US',{maximumFractionDigits:2});
+
+let db;
+try{db=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+db=db||{teams:[],tx:[],cur:'SAR',lastBackup:null,unsaved:0};
+function save(bump=true){
+  if(bump)db.unsaved=(db.unsaved||0)+1;
+  try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){alert('Could not save! Storage full or blocked.')}
+}
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+
+let tab='teams',view=null,q='',filt='owe';
+const bal=id=>db.tx.reduce((s,t)=>t.team===id?s+(t.type==='give'?t.amt:-t.amt):s,0);
+const name=id=>(db.teams.find(t=>t.id===id)||{name:'(deleted)'}).name;
+const total=()=>db.teams.reduce((s,t)=>s+bal(t.id),0);
+
+function header(){
+  const owing=db.teams.filter(t=>bal(t.id)>0.005).length;
+  $('#hd').innerHTML=view
+    ?`<div class="row"><button class="ghost" style="color:#fff;border-color:#fff8" id="back">← Back</button><div class="sub">${esc(name(view))}</div></div><div class="big">${fmt(bal(view))} ${db.cur}</div><div class="sub">${bal(view)>0?'still to return to you':bal(view)<0?'you owe the team':'all clear'}</div>`
+    :`<h1>Total money out with teams</h1><div class="big">${fmt(total())} ${db.cur}</div><div class="sub">${owing} of ${db.teams.length} teams have not returned in full</div>`;
+  if(view)$('#back').onclick=()=>{view=null;render()};
+}
+
+function backupBanner(){
+  const days=db.lastBackup?(Date.now()-db.lastBackup)/864e5:999;
+  if(db.tx.length&&(days>7||db.unsaved>=15))
+    return `<div class="banner">⚠️ ${db.lastBackup?`Last backup ${Math.floor(days)} days ago, ${db.unsaved} changes not backed up.`:'No backup yet.'} Go to <b>Backup</b> tab and email yourself a copy.</div>`;
+  return '';
+}
+
+function render(){
+  header();
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab&&!view));
+  $('#fab').style.display=(tab==='backup'&&!view)?'none':'block';
+  const m=$('#main');
+  if(view)return m.innerHTML=teamView();
+  m.innerHTML=({teams:teamsTab,log:logTab,backup:backupTab})[tab]();
+  bind();
+  window.scrollTo(0,0);
+}
+
+function teamsTab(){
+  if(!db.teams.length)return `<div class="card"><b>Welcome!</b><p>First add your teams. Paste all 35 team names (one per line) in one go.</p><button onclick="addTeamsSheet()">Add teams</button></div>`;
+  let list=db.teams.map(t=>({...t,b:bal(t.id)}));
+  if(q)list=list.filter(t=>t.name.toLowerCase().includes(q.toLowerCase()));
+  if(filt==='owe')list=list.filter(t=>t.b>0.005);
+  list.sort((a,b)=>b.b-a.b||a.name.localeCompare(b.name));
+  return `${backupBanner()}
+  <input id="q" placeholder="🔍 Search team" value="${esc(q)}">
+  <div class="chips"><button data-f="owe" class="${filt==='owe'?'on':''}">Not returned</button><button data-f="all" class="${filt==='all'?'on':''}">All teams</button><button onclick="addTeamsSheet()">+ Add teams</button></div>
+  ${list.map(t=>`<div class="card team row" data-id="${t.id}"><div><b>${esc(t.name)}</b><div class="mut">${lastInfo(t.id)}</div></div><div class="${t.b>0.005?'owe':'clr'}">${t.b>0.005?fmt(t.b):t.b<-0.005?'+'+fmt(-t.b):'✓ clear'}</div></div>`).join('')||'<div class="card mut">Nothing here 🎉</div>'}`;
+}
+function lastInfo(id){
+  const l=db.tx.filter(t=>t.team===id).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id))[0];
+  return l?`${l.type==='give'?'Gave':'Returned'} ${fmt(l.amt)} · ${l.date}`:'No entries';
+}
+
+function txRow(t,showTeam){
+  return `<div class="card row" data-tx="${t.id}"><div><b class="${t.type==='give'?'owe':'clr'}">${t.type==='give'?'Gave':'Returned'} ${fmt(t.amt)}</b>${showTeam?` · ${esc(name(t.team))}`:''}<div class="mut">${t.date}${t.note?' · '+esc(t.note):''}</div></div><button class="ghost" data-edit="${t.id}">Edit</button></div>`;
+}
+function logTab(){
+  const l=[...db.tx].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id)).slice(0,200);
+  return `<h2>Recent activity</h2>${l.map(t=>txRow(t,true)).join('')||'<div class="card mut">No entries yet. Tap + to add.</div>'}`;
+}
+function teamView(){
+  const l=db.tx.filter(t=>t.team===view).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
+  let run=0;const rows=l.map(t=>{run+=t.type==='give'?t.amt:-t.amt;return {t,run}}).reverse();
+  setTimeout(()=>{
+    document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>entrySheet(b.dataset.edit));
+    $('#stmt').onclick=()=>shareStatement(view);
+    $('#ren').onclick=()=>renameTeam(view);
+    $('#add').onclick=()=>entrySheet(null,view);
+  });
+  const took=l.filter(t=>t.type==='give').reduce((s,t)=>s+t.amt,0),ret=l.filter(t=>t.type==='ret').reduce((s,t)=>s+t.amt,0);
+  return `<div class="card row" style="text-align:center"><div style="flex:1"><div class="mut">Total taken</div><b class="owe">${fmt(took)}</b></div><div style="flex:1"><div class="mut">Total returned</div><b class="clr">${fmt(ret)}</b></div><div style="flex:1"><div class="mut">Balance due</div><b style="font-size:18px">${fmt(took-ret)}</b></div></div>
+  <div style="display:flex;gap:8px;margin:8px 0"><button id="add" style="flex:2">+ New entry</button><button class="ghost" id="stmt" style="flex:1">Share</button><button class="ghost" id="ren" style="flex:1">Rename</button></div>
+  <h2>Full history (newest first)</h2>
+  ${rows.map(r=>`<div class="card row"><div><b class="${r.t.type==='give'?'owe':'clr'}">${r.t.type==='give'?'💸 Took':'✅ Returned'} ${fmt(r.t.amt)}</b><div class="mut">${r.t.date}${r.t.note?' · '+esc(r.t.note):''}</div></div><div style="text-align:right"><div class="mut">balance ${fmt(r.run)}</div><button class="ghost" data-edit="${r.t.id}" style="padding:4px 10px;margin-top:4px">Edit</button></div></div>`).join('')||'<div class="card mut">No entries for this team.</div>'}`;
+}
+
+function bind(){
+  document.querySelectorAll('.team').forEach(e=>e.onclick=()=>{view=e.dataset.id;render()});
+  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>entrySheet(b.dataset.edit));
+  document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;render()});
+  const qi=$('#q');if(qi)qi.oninput=()=>{q=qi.value;const p=qi.selectionStart;render();const n=$('#q');n.focus();n.setSelectionRange(p,p)};
+}
+
+/* ---------- sheets ---------- */
+function sheet(html){$('#modal').innerHTML=`<div class="sheet" id="sh"><div>${html}</div></div>`;$('#sh').onclick=e=>{if(e.target.id==='sh')closeSheet()}}
+function closeSheet(){$('#modal').innerHTML=''}
+
+function entrySheet(id,teamId){
+  if(!db.teams.length)return addTeamsSheet();
+  const t=id?db.tx.find(x=>x.id===id):{type:'give',team:teamId||view||'',amt:'',date:today(),note:''};
+  let type=t.type;
+  sheet(`<h2 style="margin-top:0">${id?'Edit entry':'New entry'}</h2>
+  <div class="seg"><button class="give ${type==='give'?'on':''}" id="tg">💸 I gave money</button><button class="ret ${type==='ret'?'on':''}" id="tr">✅ Team returned</button></div>
+  <label class="mut">Team</label><select id="e_team"><option value="">— choose team —</option>${[...db.teams].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${x.id}" ${x.id===t.team?'selected':''}>${esc(x.name)}</option>`).join('')}</select>
+  <label class="mut">Amount (${db.cur})</label><input id="e_amt" type="text" inputmode="decimal" autocomplete="off" value="${t.amt}" placeholder="Type amount e.g. 500">
+  <label class="mut">Date</label><input id="e_date" type="date" value="${t.date}">
+  <label class="mut">Note (optional)</label><input id="e_note" value="${esc(t.note)}" placeholder="e.g. fuel, site visit, part return">
+  <div class="row"><button id="e_save" style="flex:2">Save</button><button class="ghost" id="e_x" style="flex:1">Cancel</button></div>
+  ${id?'<button class="danger" id="e_del" style="width:100%;margin-top:10px">Delete entry</button>':''}`);
+  const setT=v=>{type=v;$('#tg').classList.toggle('on',v==='give');$('#tr').classList.toggle('on',v==='ret')};
+  $('#tg').onclick=()=>setT('give');$('#tr').onclick=()=>setT('ret');
+  $('#e_amt').oninput=e=>{e.target.value=e.target.value.replace(/[^0-9.,]/g,'')};
+  if(!id)setTimeout(()=>$('#e_amt').focus(),50);
+  $('#e_x').onclick=closeSheet;
+  $('#e_save').onclick=()=>{
+    const team=$('#e_team').value,amt=parseFloat($('#e_amt').value.replace(/[,\s]/g,''));
+    if(!team)return alert('Choose a team');
+    if(!(amt>0))return alert('Enter amount');
+    const rec={id:id||uid(),team,type,amt,date:$('#e_date').value||today(),note:$('#e_note').value.trim()};
+    if(id)db.tx[db.tx.findIndex(x=>x.id===id)]=rec;else db.tx.push(rec);
+    save();closeSheet();render();
+  };
+  if(id)$('#e_del').onclick=()=>{if(confirm('Delete this entry?')){db.tx=db.tx.filter(x=>x.id!==id);save();closeSheet();render()}};
+}
+
+function addTeamsSheet(){
+  sheet(`<h2 style="margin-top:0">Add teams</h2><p class="mut">One team name per line. Already existing names are skipped.</p>
+  <textarea id="tn" rows="10" placeholder="Team 1&#10;Team 2&#10;Team 3"></textarea>
+  <div class="row"><button id="ts" style="flex:2">Add</button><button class="ghost" id="tx" style="flex:1">Cancel</button></div>`);
+  $('#tx').onclick=closeSheet;
+  $('#ts').onclick=()=>{
+    const have=new Set(db.teams.map(t=>t.name.toLowerCase()));let n=0;
+    $('#tn').value.split('\n').map(s=>s.trim()).filter(Boolean).forEach(s=>{if(!have.has(s.toLowerCase())){have.add(s.toLowerCase());db.teams.push({id:uid(),name:s});n++}});
+    save();closeSheet();render();if(n)alert(n+' teams added');
+  };
+}
+function renameTeam(id){
+  const n=prompt('Team name',name(id));if(!n||!n.trim())return;
+  db.teams.find(t=>t.id===id).name=n.trim();save();render();
+}
+
+/* ---------- sharing / backup ---------- */
+function statementText(id){
+  const l=db.tx.filter(t=>t.team===id).sort((a,b)=>a.date.localeCompare(b.date));
+  let run=0;
+  return `Statement – ${name(id)}\n`+l.map(t=>{run+=t.type==='give'?t.amt:-t.amt;return `${t.date}  ${t.type==='give'?'Given':'Returned'} ${fmt(t.amt)}${t.note?' ('+t.note+')':''}  | Balance ${fmt(run)}`}).join('\n')+`\n\nOutstanding: ${fmt(bal(id))} ${db.cur}`;
+}
+function shareStatement(id){
+  const text=statementText(id);
+  if(navigator.share)navigator.share({text}).catch(()=>{});
+  else window.open('https://wa.me/?text='+encodeURIComponent(text));
+}
+const stamp=()=>today();
+function backupFile(){return new File([JSON.stringify(db,null,1)],`DT-backup-${stamp()}.json`,{type:'application/json'})}
+function csvFile(){
+  const r=[['Date','Team','Type','Amount','Note']].concat([...db.tx].sort((a,b)=>a.date.localeCompare(b.date)).map(t=>[t.date,name(t.team),t.type==='give'?'Given':'Returned',t.amt,t.note]));
+  const s=r.map(x=>x.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  return new File(['﻿'+s],`DT-transactions-${stamp()}.csv`,{type:'text/csv'});
+}
+function download(f){const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove()}
+function markBackup(){db.lastBackup=Date.now();db.unsaved=0;save(false);render()}
+async function emailBackup(){
+  const f=backupFile();
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[f]})){
+      await navigator.share({files:[f],title:'DT Tracker backup '+stamp(),text:'Backup of DT advance tracker'});
+      return markBackup();
+    }
+  }catch(e){if(e.name==='AbortError')return}
+  download(f);
+  location.href=`mailto:${db.email||''}?subject=${encodeURIComponent('DT Tracker backup '+stamp())}&body=${encodeURIComponent('Attach the downloaded file DT-backup-'+stamp()+'.json to this mail.')}`;
+  markBackup();
+}
+async function shareCsv(){
+  const f=csvFile();
+  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e.name==='AbortError')return}
+  download(f);
+}
+function restoreFile(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!Array.isArray(d.teams)||!Array.isArray(d.tx))throw 0;
+      if(!confirm(`Replace ALL current data with backup?\n\nBackup has ${d.teams.length} teams and ${d.tx.length} entries.\nCurrent has ${db.teams.length} teams and ${db.tx.length} entries.`))return;
+      db=d;db.cur=db.cur||'SAR';save(false);view=null;render();alert('Restored ✔');
+    }catch(e){alert('This is not a valid backup file')}
+  };
+  r.readAsText(file);
+}
+function backupTab(){
+  const lb=db.lastBackup?new Date(db.lastBackup).toLocaleString():'never';
+  setTimeout(()=>{
+    $('#b_mail').onclick=emailBackup;$('#b_csv').onclick=shareCsv;
+    $('#b_rest').onchange=e=>e.target.files[0]&&restoreFile(e.target.files[0]);
+    $('#b_em').onchange=e=>{db.email=e.target.value.trim();save(false);render()};
+    $('#b_cur').onchange=e=>{db.cur=e.target.value.trim()||'SAR';save(false);render()};
+  });
+  return `<h2>Backup to your Gmail</h2>
+  <div class="card"><div class="mut">Last backup: <b>${lb}</b><br>Not backed up: <b>${db.unsaved||0}</b> changes</div>
+  <p>Tap the button, choose <b>Gmail</b>, send to <b>${esc(db.email||'your own email')}</b>. Your Gmail then holds a safe copy.</p>
+  <button id="b_mail" style="width:100%">📧 Email backup to myself</button></div>
+  <div class="card"><b>Excel / CSV report</b><div class="mut">All entries, opens in Excel or Google Sheets.</div><br><button id="b_csv" class="ghost" style="width:100%">Export CSV</button></div>
+  <div class="card"><b>Restore from backup</b><div class="mut">New phone or lost data? Download the .json from your Gmail, then pick it here.</div><br><input type="file" id="b_rest" accept=".json,application/json"></div>
+  <div class="card"><b>My backup email</b><input id="b_em" type="email" value="${esc(db.email||'')}" placeholder="you@gmail.com"></div>
+  <div class="card"><b>Currency label</b><input id="b_cur" value="${esc(db.cur)}"></div>
+  <p class="mut">Data lives only on this phone (nothing is uploaded anywhere). Backup regularly — at least weekly.</p>`;
+}
+
+/* ---------- boot ---------- */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;view=null;render()});
+$('#fab').onclick=()=>entrySheet(null,view);
+render();
+</script>
+</body>
+</html>
