@@ -245,6 +245,9 @@ function restoreFile(file){
     try{
       const d=JSON.parse(r.result);
       if(!Array.isArray(d.teams)||!Array.isArray(d.tx))throw 0;
+      if(confirm(`Merge this backup into current data? (keeps both, nothing lost)
+
+OK = merge. Cancel = more options.`)){db=mergeDb(db,d);db.teams.forEach(t=>{if(!t.u)t.u=Date.now()});db.tx.forEach(t=>{if(!t.u)t.u=Date.now()});save();view=null;render();return alert('Merged ✔')}
       if(!confirm(`Replace ALL current data with backup?\n\nBackup has ${d.teams.length} teams and ${d.tx.length} entries.\nCurrent has ${db.teams.length} teams and ${db.tx.length} entries.`))return;
       db=d;db.cur=db.cur||'SAR';db.dead=db.dead||{};db.teams.forEach(t=>{if(!t.u)t.u=Date.now()});db.tx.forEach(t=>{if(!t.u)t.u=Date.now()});save(false);view=null;render();alert('Restored ✔');
     }catch(e){alert('This is not a valid backup file')}
@@ -256,54 +259,28 @@ function backupTab(){
   setTimeout(()=>{
     $('#b_sync').onclick=()=>syncNow(true);$('#b_mail').onclick=emailBackup;$('#b_csv').onclick=shareCsv;
     $('#b_rest').onchange=e=>e.target.files[0]&&restoreFile(e.target.files[0]);
-    $('#b_gm').onchange=e=>{db.gmail=e.target.value.trim();save(false)};
+    $('#b_code').onchange=e=>e.target.value.trim()&&setupCode(e.target.value);
     $('#b_em').onchange=e=>{db.email=e.target.value.trim();save(false);render()};
     $('#b_cur').onchange=e=>{db.cur=e.target.value.trim()||'SAR';save(false);render()};
   });
   return `<h2>Sync phone ↔ laptop</h2>
-  <div class="card"><div class="mut">Uses your own Google Drive (hidden app folder). Sign in with the same Google account on every device.<br>Status: <b>${syncLabel()}</b>${db.lastSync?' · last '+new Date(db.lastSync).toLocaleString():''}</div><br>
-  <button id="b_sync" style="width:100%">🔄 Sign in with Google &amp; Sync now</button></div>
+  <div class="card"><div class="mut">Your data syncs through your own private link (your Google Drive via your own script). No Google sign-in, nothing expires.<br>Status: <b>${syncLabel()}</b>${db.lastSync?' · last '+new Date(db.lastSync).toLocaleString():''}</div><br>
+  <button id="b_sync" style="width:100%">🔄 Sync now</button>
+  <div class="mut" style="margin-top:10px">${db.url?'✔ Set up on this device.':'Paste the Sync setup code:'}</div><input id="b_code" placeholder="Paste setup code here"></div>
   <h2>Backup to your Gmail</h2>
   <div class="card"><div class="mut">Last backup: <b>${lb}</b><br>Not backed up: <b>${db.unsaved||0}</b> changes</div>
   <p>Tap the button, choose <b>Gmail</b>, send to <b>${esc(db.email||'your own email')}</b>. Your Gmail then holds a safe copy.</p>
   <button id="b_mail" style="width:100%">📧 Email backup to myself</button></div>
   <div class="card"><b>Excel / CSV report</b><div class="mut">All entries, opens in Excel or Google Sheets.</div><br><button id="b_csv" class="ghost" style="width:100%">Export CSV</button></div>
   <div class="card"><b>Restore from backup</b><div class="mut">New phone or lost data? Download the .json from your Gmail, then pick it here.</div><br><input type="file" id="b_rest" accept=".json,application/json"></div>
-  <div class="card"><b>Google account for sync</b><div class="mut">Type it once so Google does not ask you to choose an account each time.</div><input id="b_gm" type="email" value="${esc(db.gmail||'')}" placeholder="you@gmail.com"></div>
   <div class="card"><b>My backup email</b><input id="b_em" type="email" value="${esc(db.email||'')}" placeholder="you@gmail.com"></div>
   <div class="card"><b>Currency label</b><input id="b_cur" value="${esc(db.cur)}"></div>
-  <p class="mut">Data lives only on this phone (nothing is uploaded anywhere). Backup regularly — at least weekly.</p>`;
+  <p class="mut">Data always works offline on this phone. Daily copies are also kept in your Drive. Still email a backup weekly.</p>`;
 }
 
-/* ---------- Google Drive sync ---------- */
-const CLIENT_ID='797257109984-kpcjn599o1qsp86iovieiehsdef3l84e.apps.googleusercontent.com';
-const SCOPE='https://www.googleapis.com/auth/drive.appdata';
-const FNAME='dt-tracker-data.json';
-let tok=null,tokExp=0,tc=null,syncing=false,syncMsg='',st=0;
-try{const o=JSON.parse(localStorage.getItem('dt_tok'));if(o&&o.e>Date.now()+60000){tok=o.t;tokExp=o.e}}catch(e){}
-function syncLabel(){return syncing?'⏳ Syncing…':syncMsg||(db.lastSync?'🔄 Sync':'🔄 Sync (not set up)')}
-function loadGsi(){return new Promise((res,rej)=>{if(window.google&&google.accounts)return res();const x=document.createElement('script');x.src='https://accounts.google.com/gsi/client';x.onload=res;x.onerror=()=>rej(new Error('offline'));document.head.appendChild(x)})}
-function getToken(interactive){
-  return new Promise(async(res,rej)=>{
-    if(tok&&Date.now()<tokExp-60000)return res(tok);
-    try{await loadGsi()}catch(e){return rej(e)}
-    const ask=prompt=>{
-      tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPE,login_hint:db.gmail||undefined,
-        callback:r=>{
-          if(r.error){if(prompt==='none')return ask('');return rej(new Error(r.error))}
-          tok=r.access_token;tokExp=Date.now()+(r.expires_in||3600)*1000;
-          try{localStorage.setItem('dt_tok',JSON.stringify({t:tok,e:tokExp}))}catch(e){}
-          db.gok=1;save(false);res(tok)},
-        error_callback:e=>{if(prompt==='none')return ask('');rej(new Error(e.type||'popup'))}});
-      tc.requestAccessToken({prompt,hint:db.gmail||undefined});
-    };
-    ask(db.gok&&db.gmail?'none':(db.gok?'':'consent'));
-  });
-}
-async function gfetch(url,opt={}){
-  const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),Authorization:'Bearer '+tok}});
-  if(!r.ok)throw new Error('Drive '+r.status);return r;
-}
+/* ---------- Sync via your own Apps Script link (no Google sign-in) ---------- */
+let syncing=false,syncMsg='',st=0;
+function syncLabel(){return syncing?'⏳ Syncing…':syncMsg||(db.url?'🔄 Sync':'🔄 Sync (not set up)')}
 function mergeDb(a,b){
   const dead={...a.dead};for(const k in (b.dead||{}))dead[k]=Math.max(dead[k]||0,b.dead[k]);
   const pick=(x,y)=>{const m=new Map();[...x,...y].forEach(r=>{const o=m.get(r.id);if(!o||(r.u||0)>(o.u||0))m.set(r.id,r)});return [...m.values()].filter(r=>!(dead[r.id]&&dead[r.id]>=(r.u||0)))};
@@ -312,40 +289,30 @@ function mergeDb(a,b){
   return out;
 }
 async function syncNow(interactive){
-  if(syncing)return;syncing=true;syncMsg='';render();
+  if(syncing)return;
+  if(!db.url||!db.skey){if(interactive){alert('Sync is not set up yet. Paste the Sync setup code in the Backup tab.');tab='backup';view=null;render()}return}
+  syncing=true;syncMsg='';render();
   try{
-    await getToken(interactive);
-    const q=encodeURIComponent(`name='${FNAME}'`);
-    const f=await(await gfetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`)).json();
-    let fid=f.files&&f.files[0]&&f.files[0].id;
-    if(fid){
-      const remote=await(await gfetch(`https://www.googleapis.com/drive/v3/files/${fid}?alt=media`)).json();
-      if(remote&&remote.teams){const keep={email:db.email,gmail:db.gmail,cur:db.cur,lastBackup:db.lastBackup,gok:db.gok};db=mergeDb(db,remote);Object.assign(db,keep)}
-    }
-    const body=JSON.stringify({teams:db.teams,tx:db.tx,dead:db.dead});
-    if(fid)await gfetch(`https://www.googleapis.com/upload/drive/v3/files/${fid}?uploadType=media`,{method:'PATCH',headers:{'Content-Type':'application/json'},body});
-    else{
-      const bd='b'+uid(),meta=JSON.stringify({name:FNAME,parents:['appDataFolder']});
-      await gfetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+bd},body:['--'+bd,'Content-Type: application/json','',meta,'--'+bd,'Content-Type: application/json','',body,'--'+bd+'--'].join('\r\n')});
-    }
-    db.lastSync=Date.now();save(false);syncMsg='✅ Synced';
-  }catch(e){syncMsg='⚠️ Not synced';if(interactive)alert('Sync failed: '+e.message+' - check internet and that you use the allowed Google account.')}
+    const r=await fetch(db.url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({key:db.skey,teams:db.teams,tx:db.tx,dead:db.dead})});
+    const j=await r.json();if(!j.ok)throw new Error(j.error||'server error');
+    db=mergeDb(db,j.data);db.lastSync=Date.now();save(false);syncMsg='✅ Synced';
+  }catch(e){syncMsg='⚠️ Not synced';if(interactive)alert('Sync failed: '+e.message+'. Check internet and the setup code.')}
   syncing=false;render();setTimeout(()=>{syncMsg='';if(!syncing)render()},4000);
 }
-function tokOk(){return tok&&Date.now()<tokExp-60000}
-function queueSync(){
-  if(!db.gok||!navigator.onLine)return;
-  if(tokOk()){clearTimeout(st);st=setTimeout(()=>syncNow(false),2000)}
-  else syncNow(false);
+function queueSync(){if(!db.url||!navigator.onLine)return;clearTimeout(st);st=setTimeout(()=>syncNow(false),2000)}
+window.addEventListener('online',()=>syncNow(false));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow(false)});
+function setupCode(v){
+  try{v=v.trim();const p=v.split('|');const o=p.length===2?{u:p[0].trim(),k:p[1].trim()}:JSON.parse(atob(v));if(!/^https:\/\//.test(o.u)||!o.k)throw 0;db.url=o.u;db.skey=o.k;save(false);syncNow(true)}
+  catch(e){alert('That setup code is not valid')}
 }
-window.addEventListener('online',()=>{if(db.gok&&tokOk())syncNow(false)});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&db.gok&&tokOk()&&!syncing)syncNow(false)});
+
 
 /* ---------- boot ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;view=null;render()});
 $('#fab').onclick=()=>entrySheet(null,view);
 render();
-if(db.gok&&tok&&Date.now()<tokExp-60000)syncNow(false);
+syncNow(false);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
