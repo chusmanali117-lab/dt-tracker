@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>DT Advance Tracker</title>
 <style>
 :root{--bg:#f3f5f7;--card:#fff;--tx:#17202a;--mut:#6b7785;--pri:#0f766e;--red:#c0392b;--grn:#1e8449;--bd:#e1e6ea}
@@ -64,7 +67,10 @@ const fmt=n=>(Math.round(n*100)/100).toLocaleString('en-US',{maximumFractionDigi
 let db;
 try{db=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 db=db||{teams:[],tx:[],cur:'SAR',lastBackup:null,unsaved:0};
+db.dead=db.dead||{};
+db.teams.forEach(t=>{if(!t.u)t.u=Date.now()});db.tx.forEach(t=>{if(!t.u)t.u=Date.now()});
 function save(bump=true){
+  if(bump)queueSync();
   if(bump)db.unsaved=(db.unsaved||0)+1;
   try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){alert('Could not save! Storage full or blocked.')}
 }
@@ -79,8 +85,9 @@ function header(){
   const owing=db.teams.filter(t=>bal(t.id)>0.005).length;
   $('#hd').innerHTML=view
     ?`<div class="row"><button class="ghost" style="color:#fff;border-color:#fff8" id="back">← Back</button><div class="sub">${esc(name(view))}</div></div><div class="big">${fmt(bal(view))} ${db.cur}</div><div class="sub">${bal(view)>0?'still to return to you':bal(view)<0?'you owe the team':'all clear'}</div>`
-    :`<h1>Total money out with teams</h1><div class="big">${fmt(total())} ${db.cur}</div><div class="sub">${owing} of ${db.teams.length} teams have not returned in full</div>`;
+    :`<div class="row"><h1>Total money out with teams</h1><button id="syn" style="background:#fff3;padding:6px 10px;font-size:13px">${syncLabel()}</button></div><div class="big">${fmt(total())} ${db.cur}</div><div class="sub">${owing} of ${db.teams.length} teams have not returned in full</div>`;
   if(view)$('#back').onclick=()=>{view=null;render()};
+  else $('#syn').onclick=()=>syncNow(true);
 }
 
 function backupBanner(){
@@ -172,11 +179,11 @@ function entrySheet(id,teamId){
     const team=$('#e_team').value,amt=parseFloat($('#e_amt').value.replace(/[,\s]/g,''));
     if(!team)return alert('Choose a team');
     if(!(amt>0))return alert('Enter amount');
-    const rec={id:id||uid(),team,type,amt,date:$('#e_date').value||today(),note:$('#e_note').value.trim()};
+    const rec={id:id||uid(),team,type,amt,date:$('#e_date').value||today(),note:$('#e_note').value.trim(),u:Date.now()};
     if(id)db.tx[db.tx.findIndex(x=>x.id===id)]=rec;else db.tx.push(rec);
     save();closeSheet();render();
   };
-  if(id)$('#e_del').onclick=()=>{if(confirm('Delete this entry?')){db.tx=db.tx.filter(x=>x.id!==id);save();closeSheet();render()}};
+  if(id)$('#e_del').onclick=()=>{if(confirm('Delete this entry?')){db.tx=db.tx.filter(x=>x.id!==id);db.dead[id]=Date.now();save();closeSheet();render()}};
 }
 
 function addTeamsSheet(){
@@ -186,13 +193,13 @@ function addTeamsSheet(){
   $('#tx').onclick=closeSheet;
   $('#ts').onclick=()=>{
     const have=new Set(db.teams.map(t=>t.name.toLowerCase()));let n=0;
-    $('#tn').value.split('\n').map(s=>s.trim()).filter(Boolean).forEach(s=>{if(!have.has(s.toLowerCase())){have.add(s.toLowerCase());db.teams.push({id:uid(),name:s});n++}});
+    $('#tn').value.split('\n').map(s=>s.trim()).filter(Boolean).forEach(s=>{if(!have.has(s.toLowerCase())){have.add(s.toLowerCase());db.teams.push({id:uid(),name:s,u:Date.now()});n++}});
     save();closeSheet();render();if(n)alert(n+' teams added');
   };
 }
 function renameTeam(id){
   const n=prompt('Team name',name(id));if(!n||!n.trim())return;
-  db.teams.find(t=>t.id===id).name=n.trim();save();render();
+  {const tt=db.teams.find(t=>t.id===id);tt.name=n.trim();tt.u=Date.now()}save();render();
 }
 
 /* ---------- sharing / backup ---------- */
@@ -239,7 +246,7 @@ function restoreFile(file){
       const d=JSON.parse(r.result);
       if(!Array.isArray(d.teams)||!Array.isArray(d.tx))throw 0;
       if(!confirm(`Replace ALL current data with backup?\n\nBackup has ${d.teams.length} teams and ${d.tx.length} entries.\nCurrent has ${db.teams.length} teams and ${db.tx.length} entries.`))return;
-      db=d;db.cur=db.cur||'SAR';save(false);view=null;render();alert('Restored ✔');
+      db=d;db.cur=db.cur||'SAR';db.dead=db.dead||{};db.teams.forEach(t=>{if(!t.u)t.u=Date.now()});db.tx.forEach(t=>{if(!t.u)t.u=Date.now()});save(false);view=null;render();alert('Restored ✔');
     }catch(e){alert('This is not a valid backup file')}
   };
   r.readAsText(file);
@@ -247,12 +254,15 @@ function restoreFile(file){
 function backupTab(){
   const lb=db.lastBackup?new Date(db.lastBackup).toLocaleString():'never';
   setTimeout(()=>{
-    $('#b_mail').onclick=emailBackup;$('#b_csv').onclick=shareCsv;
+    $('#b_sync').onclick=()=>syncNow(true);$('#b_mail').onclick=emailBackup;$('#b_csv').onclick=shareCsv;
     $('#b_rest').onchange=e=>e.target.files[0]&&restoreFile(e.target.files[0]);
     $('#b_em').onchange=e=>{db.email=e.target.value.trim();save(false);render()};
     $('#b_cur').onchange=e=>{db.cur=e.target.value.trim()||'SAR';save(false);render()};
   });
-  return `<h2>Backup to your Gmail</h2>
+  return `<h2>Sync phone ↔ laptop</h2>
+  <div class="card"><div class="mut">Uses your own Google Drive (hidden app folder). Sign in with the same Google account on every device.<br>Status: <b>${syncLabel()}</b>${db.lastSync?' · last '+new Date(db.lastSync).toLocaleString():''}</div><br>
+  <button id="b_sync" style="width:100%">🔄 Sign in with Google &amp; Sync now</button></div>
+  <h2>Backup to your Gmail</h2>
   <div class="card"><div class="mut">Last backup: <b>${lb}</b><br>Not backed up: <b>${db.unsaved||0}</b> changes</div>
   <p>Tap the button, choose <b>Gmail</b>, send to <b>${esc(db.email||'your own email')}</b>. Your Gmail then holds a safe copy.</p>
   <button id="b_mail" style="width:100%">📧 Email backup to myself</button></div>
@@ -263,10 +273,67 @@ function backupTab(){
   <p class="mut">Data lives only on this phone (nothing is uploaded anywhere). Backup regularly — at least weekly.</p>`;
 }
 
+/* ---------- Google Drive sync ---------- */
+const CLIENT_ID='797257109984-kpcjn599o1qsp86iovieiehsdef3l84e.apps.googleusercontent.com';
+const SCOPE='https://www.googleapis.com/auth/drive.appdata';
+const FNAME='dt-tracker-data.json';
+let tok=null,tokExp=0,tc=null,syncing=false,syncMsg='',st=0;
+function syncLabel(){return syncing?'⏳ Syncing…':syncMsg||(db.lastSync?'🔄 Sync':'🔄 Sync (not set up)')}
+function loadGsi(){return new Promise((res,rej)=>{if(window.google&&google.accounts)return res();const x=document.createElement('script');x.src='https://accounts.google.com/gsi/client';x.onload=res;x.onerror=()=>rej(new Error('offline'));document.head.appendChild(x)})}
+function getToken(interactive){
+  return new Promise(async(res,rej)=>{
+    if(tok&&Date.now()<tokExp-60000)return res(tok);
+    try{await loadGsi()}catch(e){return rej(e)}
+    tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPE,callback:r=>{
+      if(r.error)return rej(new Error(r.error));
+      tok=r.access_token;tokExp=Date.now()+(r.expires_in||3600)*1000;db.gok=1;save(false);res(tok)},
+      error_callback:e=>rej(new Error(e.type||'popup'))});
+    tc.requestAccessToken({prompt:interactive&&!db.gok?'consent':''});
+  });
+}
+async function gfetch(url,opt={}){
+  const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),Authorization:'Bearer '+tok}});
+  if(!r.ok)throw new Error('Drive '+r.status);return r;
+}
+function mergeDb(a,b){
+  const dead={...a.dead};for(const k in (b.dead||{}))dead[k]=Math.max(dead[k]||0,b.dead[k]);
+  const pick=(x,y)=>{const m=new Map();[...x,...y].forEach(r=>{const o=m.get(r.id);if(!o||(r.u||0)>(o.u||0))m.set(r.id,r)});return [...m.values()].filter(r=>!(dead[r.id]&&dead[r.id]>=(r.u||0)))};
+  const out={...a,dead};out.teams=pick(a.teams,b.teams||[]);out.tx=pick(a.tx,b.tx||[]);
+  const tid=new Set(out.teams.map(t=>t.id));out.tx=out.tx.filter(t=>tid.has(t.team));
+  return out;
+}
+async function syncNow(interactive){
+  if(syncing)return;syncing=true;syncMsg='';render();
+  try{
+    await getToken(interactive);
+    const q=encodeURIComponent(`name='${FNAME}'`);
+    const f=await(await gfetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`)).json();
+    let fid=f.files&&f.files[0]&&f.files[0].id;
+    if(fid){
+      const remote=await(await gfetch(`https://www.googleapis.com/drive/v3/files/${fid}?alt=media`)).json();
+      if(remote&&remote.teams){const keep={email:db.email,cur:db.cur,lastBackup:db.lastBackup,gok:db.gok};db=mergeDb(db,remote);Object.assign(db,keep)}
+    }
+    const body=JSON.stringify({teams:db.teams,tx:db.tx,dead:db.dead});
+    if(fid)await gfetch(`https://www.googleapis.com/upload/drive/v3/files/${fid}?uploadType=media`,{method:'PATCH',headers:{'Content-Type':'application/json'},body});
+    else{
+      const bd='b'+uid(),meta=JSON.stringify({name:FNAME,parents:['appDataFolder']});
+      await gfetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+bd},body:['--'+bd,'Content-Type: application/json','',meta,'--'+bd,'Content-Type: application/json','',body,'--'+bd+'--'].join('\r\n')});
+    }
+    db.lastSync=Date.now();save(false);syncMsg='✅ Synced';
+  }catch(e){syncMsg='⚠️ Not synced';if(interactive)alert('Sync failed: '+e.message+' - check internet and that you use the allowed Google account.')}
+  syncing=false;render();setTimeout(()=>{syncMsg='';if(!syncing)render()},4000);
+}
+function queueSync(){
+  if(!db.gok||!tok||Date.now()>=tokExp-60000)return;
+  clearTimeout(st);st=setTimeout(()=>syncNow(false),3000);
+}
+
 /* ---------- boot ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;view=null;render()});
 $('#fab').onclick=()=>entrySheet(null,view);
 render();
+if(db.gok)syncNow(false);
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
 </html>
