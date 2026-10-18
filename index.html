@@ -256,6 +256,7 @@ function backupTab(){
   setTimeout(()=>{
     $('#b_sync').onclick=()=>syncNow(true);$('#b_mail').onclick=emailBackup;$('#b_csv').onclick=shareCsv;
     $('#b_rest').onchange=e=>e.target.files[0]&&restoreFile(e.target.files[0]);
+    $('#b_gm').onchange=e=>{db.gmail=e.target.value.trim();save(false)};
     $('#b_em').onchange=e=>{db.email=e.target.value.trim();save(false);render()};
     $('#b_cur').onchange=e=>{db.cur=e.target.value.trim()||'SAR';save(false);render()};
   });
@@ -268,6 +269,7 @@ function backupTab(){
   <button id="b_mail" style="width:100%">📧 Email backup to myself</button></div>
   <div class="card"><b>Excel / CSV report</b><div class="mut">All entries, opens in Excel or Google Sheets.</div><br><button id="b_csv" class="ghost" style="width:100%">Export CSV</button></div>
   <div class="card"><b>Restore from backup</b><div class="mut">New phone or lost data? Download the .json from your Gmail, then pick it here.</div><br><input type="file" id="b_rest" accept=".json,application/json"></div>
+  <div class="card"><b>Google account for sync</b><div class="mut">Type it once so Google does not ask you to choose an account each time.</div><input id="b_gm" type="email" value="${esc(db.gmail||'')}" placeholder="you@gmail.com"></div>
   <div class="card"><b>My backup email</b><input id="b_em" type="email" value="${esc(db.email||'')}" placeholder="you@gmail.com"></div>
   <div class="card"><b>Currency label</b><input id="b_cur" value="${esc(db.cur)}"></div>
   <p class="mut">Data lives only on this phone (nothing is uploaded anywhere). Backup regularly — at least weekly.</p>`;
@@ -278,17 +280,24 @@ const CLIENT_ID='797257109984-kpcjn599o1qsp86iovieiehsdef3l84e.apps.googleuserco
 const SCOPE='https://www.googleapis.com/auth/drive.appdata';
 const FNAME='dt-tracker-data.json';
 let tok=null,tokExp=0,tc=null,syncing=false,syncMsg='',st=0;
+try{const o=JSON.parse(localStorage.getItem('dt_tok'));if(o&&o.e>Date.now()+60000){tok=o.t;tokExp=o.e}}catch(e){}
 function syncLabel(){return syncing?'⏳ Syncing…':syncMsg||(db.lastSync?'🔄 Sync':'🔄 Sync (not set up)')}
 function loadGsi(){return new Promise((res,rej)=>{if(window.google&&google.accounts)return res();const x=document.createElement('script');x.src='https://accounts.google.com/gsi/client';x.onload=res;x.onerror=()=>rej(new Error('offline'));document.head.appendChild(x)})}
 function getToken(interactive){
   return new Promise(async(res,rej)=>{
     if(tok&&Date.now()<tokExp-60000)return res(tok);
     try{await loadGsi()}catch(e){return rej(e)}
-    tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPE,callback:r=>{
-      if(r.error)return rej(new Error(r.error));
-      tok=r.access_token;tokExp=Date.now()+(r.expires_in||3600)*1000;db.gok=1;save(false);res(tok)},
-      error_callback:e=>rej(new Error(e.type||'popup'))});
-    tc.requestAccessToken({prompt:interactive&&!db.gok?'consent':''});
+    const ask=prompt=>{
+      tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPE,login_hint:db.gmail||undefined,
+        callback:r=>{
+          if(r.error){if(prompt==='none')return ask('');return rej(new Error(r.error))}
+          tok=r.access_token;tokExp=Date.now()+(r.expires_in||3600)*1000;
+          try{localStorage.setItem('dt_tok',JSON.stringify({t:tok,e:tokExp}))}catch(e){}
+          db.gok=1;save(false);res(tok)},
+        error_callback:e=>{if(prompt==='none')return ask('');rej(new Error(e.type||'popup'))}});
+      tc.requestAccessToken({prompt,hint:db.gmail||undefined});
+    };
+    ask(db.gok&&db.gmail?'none':(db.gok?'':'consent'));
   });
 }
 async function gfetch(url,opt={}){
@@ -311,7 +320,7 @@ async function syncNow(interactive){
     let fid=f.files&&f.files[0]&&f.files[0].id;
     if(fid){
       const remote=await(await gfetch(`https://www.googleapis.com/drive/v3/files/${fid}?alt=media`)).json();
-      if(remote&&remote.teams){const keep={email:db.email,cur:db.cur,lastBackup:db.lastBackup,gok:db.gok};db=mergeDb(db,remote);Object.assign(db,keep)}
+      if(remote&&remote.teams){const keep={email:db.email,gmail:db.gmail,cur:db.cur,lastBackup:db.lastBackup,gok:db.gok};db=mergeDb(db,remote);Object.assign(db,keep)}
     }
     const body=JSON.stringify({teams:db.teams,tx:db.tx,dead:db.dead});
     if(fid)await gfetch(`https://www.googleapis.com/upload/drive/v3/files/${fid}?uploadType=media`,{method:'PATCH',headers:{'Content-Type':'application/json'},body});
@@ -332,7 +341,7 @@ function queueSync(){
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;view=null;render()});
 $('#fab').onclick=()=>entrySheet(null,view);
 render();
-if(db.gok)syncNow(false);
+if(db.gok&&tok&&Date.now()<tokExp-60000)syncNow(false);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
