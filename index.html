@@ -332,10 +332,14 @@ async function syncNow(interactive){
   }catch(e){syncMsg='⚠️ Not synced';if(interactive)alert('Sync failed: '+e.message+' - check internet and that you use the allowed Google account.')}
   syncing=false;render();setTimeout(()=>{syncMsg='';if(!syncing)render()},4000);
 }
+function tokOk(){return tok&&Date.now()<tokExp-60000}
 function queueSync(){
-  if(!db.gok||!tok||Date.now()>=tokExp-60000)return;
-  clearTimeout(st);st=setTimeout(()=>syncNow(false),3000);
+  if(!db.gok||!navigator.onLine)return;
+  if(tokOk()){clearTimeout(st);st=setTimeout(()=>syncNow(false),2000)}
+  else syncNow(false);
 }
+window.addEventListener('online',()=>{if(db.gok&&tokOk())syncNow(false)});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&db.gok&&tokOk()&&!syncing)syncNow(false)});
 
 /* ---------- boot ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;view=null;render()});
