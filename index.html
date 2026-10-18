@@ -3,46 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f766e">
+<meta name="theme-color" content="#1d4ed8">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>DT Advance Tracker</title>
+<title>DT Tracker v2</title>
 <style>
-:root{--bg:#f3f5f7;--card:#fff;--tx:#17202a;--mut:#6b7785;--pri:#0f766e;--red:#c0392b;--grn:#1e8449;--bd:#e1e6ea}
-@media(prefers-color-scheme:dark){:root{--bg:#10151a;--card:#1a2129;--tx:#e8edf1;--mut:#93a0ad;--pri:#2bb3a5;--red:#ff7a6b;--grn:#5fd18a;--bd:#2a343e}}
+:root{--bg:#eef2f9;--card:#fff;--tx:#14213d;--mut:#6b7a90;--pri:#1d4ed8;--pri2:#4f46e5;--red:#dc2626;--grn:#059669;--bd:#e3e9f3;--sh:0 2px 10px #1d3a8a14}
+@media(prefers-color-scheme:dark){:root{--bg:#0c111b;--card:#161d2b;--tx:#e8edf6;--mut:#8d9bb2;--pri:#6ea0ff;--pri2:#8b86ff;--red:#ff7b7b;--grn:#46d6a0;--bd:#243047;--sh:none}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--tx);font:16px system-ui,sans-serif;padding-bottom:84px}
-header{background:var(--pri);color:#fff;padding:16px;position:sticky;top:0;z-index:5}
-header h1{margin:0;font-size:15px;font-weight:600;opacity:.9}
-header .big{font-size:30px;font-weight:700;margin:2px 0}
-header .sub{font-size:13px;opacity:.9}
-main{padding:12px 16px;max-width:640px;margin:auto}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif;padding-bottom:92px}
+header{background:linear-gradient(135deg,#1d4ed8,#4f46e5);color:#fff;padding:16px 16px 18px;position:sticky;top:0;z-index:5;border-radius:0 0 22px 22px;box-shadow:0 6px 18px #1d3a8a40}
+header h1{margin:0;font-size:14px;font-weight:600;opacity:.92}
+header .big{font-size:34px;font-weight:800;margin:4px 0 2px;letter-spacing:-.5px}
+header .sub{font-size:13px;opacity:.92}
+.stats{display:flex;gap:8px;margin-top:10px}
+.stats div{flex:1;background:#ffffff26;border-radius:12px;padding:8px 10px;font-size:12px}
+.stats b{display:block;font-size:16px}
+main{padding:14px 16px;max-width:640px;margin:auto}
 input,select,textarea,button{font:inherit}
-input,select,textarea{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);margin:4px 0 10px}
-button{border:0;border-radius:10px;padding:12px 16px;background:var(--pri);color:#fff;font-weight:600}
-button.ghost{background:transparent;color:var(--pri);border:1px solid var(--pri)}
+input,select,textarea{width:100%;padding:13px;border:1.5px solid var(--bd);border-radius:12px;background:var(--card);color:var(--tx);margin:4px 0 10px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--pri)}
+button{border:0;border-radius:12px;padding:13px 16px;background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff;font-weight:700;cursor:pointer}
+button:active{transform:scale(.97)}
+button.ghost{background:transparent;color:var(--pri);border:1.5px solid var(--pri)}
 button.danger{background:var(--red)}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin:8px 0}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:13px 14px;margin:9px 0;box-shadow:var(--sh)}
 .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .mut{color:var(--mut);font-size:13px}
 .owe{color:var(--red);font-weight:700}.clr{color:var(--grn);font-weight:700}
-.team{cursor:pointer}
-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bd);display:flex;padding-bottom:env(safe-area-inset-bottom)}
-nav button{flex:1;background:none;color:var(--mut);border-radius:0;padding:14px 4px;font-size:13px}
+.team{cursor:pointer;gap:12px}
+.av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex:none;font-size:17px}
+.bar{height:6px;border-radius:3px;background:var(--bd);margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--grn),#34d399);border-radius:3px}
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bd);display:flex;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -4px 16px #0000000d}
+nav button{flex:1;background:none;color:var(--mut);border-radius:0;padding:10px 4px;font-size:12px;font-weight:600;line-height:1.3}
 nav button.on{color:var(--pri)}
-.fab{position:fixed;right:18px;bottom:78px;width:60px;height:60px;border-radius:30px;font-size:32px;padding:0;box-shadow:0 4px 12px #0005;z-index:6}
-.sheet{position:fixed;inset:0;background:#0008;z-index:10;display:flex;align-items:flex-end}
-.sheet>div{background:var(--bg);width:100%;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px;max-width:640px;margin:auto}
+.fab{position:fixed;right:18px;bottom:84px;width:62px;height:62px;border-radius:31px;font-size:32px;padding:0;box-shadow:0 6px 16px #1d4ed860;z-index:6}
+.sheet{position:fixed;inset:0;background:#0009;z-index:10;display:flex;align-items:flex-end}
+.sheet>div{background:var(--bg);width:100%;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:18px;max-width:640px;margin:auto}
 .seg{display:flex;gap:8px;margin-bottom:10px}
 .seg button{flex:1;background:var(--card);color:var(--tx);border:2px solid var(--bd)}
 .seg button.give.on{border-color:var(--red);background:var(--red);color:#fff}
 .seg button.ret.on{border-color:var(--grn);background:var(--grn);color:#fff}
-.banner{background:#fff3cd;color:#664d03;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px}
+.banner{background:#fff3cd;color:#664d03;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px}
 .chips{display:flex;gap:8px;overflow:auto;margin-bottom:6px}
-.chips button{background:var(--card);color:var(--tx);border:1px solid var(--bd);padding:8px 12px;white-space:nowrap}
-.chips button.on{background:var(--pri);color:#fff}
-h2{font-size:17px;margin:14px 0 4px}
+.chips button{background:var(--card);color:var(--tx);border:1px solid var(--bd);padding:8px 14px;white-space:nowrap;border-radius:20px}
+.chips button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+h2{font-size:17px;margin:16px 0 4px}
+#lock{position:fixed;inset:0;z-index:50;background:linear-gradient(135deg,#1d4ed8,#4f46e5);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;gap:10px;padding:30px}
+#lock input{max-width:220px;text-align:center;font-size:28px;letter-spacing:10px}
 </style>
 </head>
 <body>
@@ -50,9 +60,9 @@ h2{font-size:17px;margin:14px 0 4px}
 <main id="main"></main>
 <button class="fab" id="fab" aria-label="Add entry">+</button>
 <nav>
-  <button data-t="teams">👥<br>Teams</button>
-  <button data-t="log">🧾<br>Activity</button>
-  <button data-t="backup">☁️<br>Backup</button>
+  <button data-t="teams">🟢<br>Teams v2</button>
+  <button data-t="log">📒<br>History</button>
+  <button data-t="backup">🔁<br>Sync</button>
 </nav>
 <div id="modal"></div>
 
@@ -79,13 +89,16 @@ try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}ca
 let tab='teams',view=null,q='',filt='owe';
 const bal=id=>db.tx.reduce((s,t)=>t.team===id?s+(t.type==='give'?t.amt:-t.amt):s,0);
 const name=id=>(db.teams.find(t=>t.id===id)||{name:'(deleted)'}).name;
+const sumT=ty=>db.tx.reduce((s,t)=>t.type===ty?s+t.amt:s,0);
+const COL=['#2563eb','#7c3aed','#db2777','#ea580c','#059669','#0891b2','#ca8a04','#4f46e5'];
+const colr=n=>COL[[...n].reduce((a,c)=>a+c.charCodeAt(0),0)%COL.length];
 const total=()=>db.teams.reduce((s,t)=>s+bal(t.id),0);
 
 function header(){
   const owing=db.teams.filter(t=>bal(t.id)>0.005).length;
   $('#hd').innerHTML=view
     ?`<div class="row"><button class="ghost" style="color:#fff;border-color:#fff8" id="back">← Back</button><div class="sub">${esc(name(view))}</div></div><div class="big">${fmt(bal(view))} ${db.cur}</div><div class="sub">${bal(view)>0?'still to return to you':bal(view)<0?'you owe the team':'all clear'}</div>`
-    :`<div class="row"><h1>Total money out with teams</h1><button id="syn" style="background:#fff3;padding:6px 10px;font-size:13px">${syncLabel()}</button></div><div class="big">${fmt(total())} ${db.cur}</div><div class="sub">${owing} of ${db.teams.length} teams have not returned in full</div>`;
+    :`<div class="row"><h1>Money out with teams · v2 ✨</h1><button id="syn" style="background:#fff3;padding:6px 10px;font-size:13px;white-space:nowrap;flex:none">${syncLabel()}</button></div><div class="big">${fmt(total())} ${db.cur}</div><div class="sub">${owing} of ${db.teams.length} teams have not returned in full</div><div class="stats"><div>Total given<b>${fmt(sumT('give'))}</b></div><div>Total returned<b>${fmt(sumT('ret'))}</b></div></div>`;
   if(view)$('#back').onclick=()=>{view=null;render()};
   else $('#syn').onclick=()=>syncNow(true);
 }
@@ -93,7 +106,7 @@ function header(){
 function backupBanner(){
   const days=db.lastBackup?(Date.now()-db.lastBackup)/864e5:999;
   if(db.tx.length&&(days>7||db.unsaved>=15))
-    return `<div class="banner">⚠️ ${db.lastBackup?`Last backup ${Math.floor(days)} days ago, ${db.unsaved} changes not backed up.`:'No backup yet.'} Go to <b>Backup</b> tab and email yourself a copy.</div>`;
+    return `<div class="banner">⚠️ ${db.lastBackup?`Last backup ${Math.floor(days)} days ago, ${db.unsaved} changes not backed up.`:'No backup yet.'} Go to <b>Sync</b> tab and email yourself a copy.</div>`;
   return '';
 }
 
@@ -117,8 +130,9 @@ function teamsTab(){
   return `${backupBanner()}
   <input id="q" placeholder="🔍 Search team" value="${esc(q)}">
   <div class="chips"><button data-f="owe" class="${filt==='owe'?'on':''}">Not returned</button><button data-f="all" class="${filt==='all'?'on':''}">All teams</button><button onclick="addTeamsSheet()">+ Add teams</button></div>
-  ${list.map(t=>`<div class="card team row" data-id="${t.id}"><div><b>${esc(t.name)}</b><div class="mut">${lastInfo(t.id)}</div></div><div class="${t.b>0.005?'owe':'clr'}">${t.b>0.005?fmt(t.b):t.b<-0.005?'+'+fmt(-t.b):'✓ clear'}</div></div>`).join('')||'<div class="card mut">Nothing here 🎉</div>'}`;
+  ${list.map(t=>`<div class="card team row" data-id="${t.id}"><div class="av" style="background:${colr(t.name)}">${esc(t.name.trim().charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><b>${esc(t.name)}</b><div class="mut">${lastInfo(t.id)}</div><div class="bar"><i style="width:${pctRet(t.id)}%"></i></div></div><div class="${t.b>0.005?'owe':'clr'}">${t.b>0.005?fmt(t.b):t.b<-0.005?'+'+fmt(-t.b):'✓ clear'}</div></div>`).join('')||'<div class="card mut">Nothing here 🎉</div>'}`;
 }
+function pctRet(id){let g=0,r=0;db.tx.forEach(t=>{if(t.team===id){t.type==='give'?g+=t.amt:r+=t.amt}});return g>0?Math.min(100,Math.round(r/g*100)):0}
 function lastInfo(id){
   const l=db.tx.filter(t=>t.team===id).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id))[0];
   return l?`${l.type==='give'?'Gave':'Returned'} ${fmt(l.amt)} · ${l.date}`:'No entries';
@@ -127,9 +141,17 @@ function lastInfo(id){
 function txRow(t,showTeam){
   return `<div class="card row" data-tx="${t.id}"><div><b class="${t.type==='give'?'owe':'clr'}">${t.type==='give'?'Gave':'Returned'} ${fmt(t.amt)}</b>${showTeam?` · ${esc(name(t.team))}`:''}<div class="mut">${t.date}${t.note?' · '+esc(t.note):''}</div></div><button class="ghost" data-edit="${t.id}">Edit</button></div>`;
 }
+let mon='';
 function logTab(){
-  const l=[...db.tx].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id)).slice(0,200);
-  return `<h2>Recent activity</h2>${l.map(t=>txRow(t,true)).join('')||'<div class="card mut">No entries yet. Tap + to add.</div>'}`;
+  const months=[...new Set(db.tx.map(t=>t.date.slice(0,7)))].sort().reverse();
+  let l=[...db.tx].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
+  if(mon)l=l.filter(t=>t.date.startsWith(mon));
+  const g=l.filter(t=>t.type==='give').reduce((s,t)=>s+t.amt,0),r=l.filter(t=>t.type==='ret').reduce((s,t)=>s+t.amt,0);
+  setTimeout(()=>{const m=$('#mon');if(m)m.onchange=()=>{mon=m.value;render()}});
+  return `<h2 style="margin-top:0">History</h2>
+  <select id="mon"><option value="">All months</option>${months.map(x=>`<option value="${x}" ${x===mon?'selected':''}>${x}</option>`).join('')}</select>
+  <div class="card row" style="text-align:center"><div style="flex:1"><div class="mut">Given</div><b class="owe">${fmt(g)}</b></div><div style="flex:1"><div class="mut">Returned</div><b class="clr">${fmt(r)}</b></div><div style="flex:1"><div class="mut">Net</div><b>${fmt(g-r)}</b></div></div>
+  ${l.slice(0,300).map(t=>txRow(t,true)).join('')||'<div class="card mut">No entries yet. Tap + to add.</div>'}`;
 }
 function teamView(){
   const l=db.tx.filter(t=>t.team===view).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
@@ -139,10 +161,12 @@ function teamView(){
     $('#stmt').onclick=()=>shareStatement(view);
     $('#ren').onclick=()=>renameTeam(view);
     $('#add').onclick=()=>entrySheet(null,view);
+    const fb=$('#full');if(fb)fb.onclick=()=>{const b=bal(view);if(b>0.005&&confirm('Record that '+name(view)+' returned the full '+fmt(b)+' '+db.cur+'?')){db.tx.push({id:uid(),team:view,type:'ret',amt:b,date:today(),note:'Full return',u:Date.now()});save();render()}};
   });
   const took=l.filter(t=>t.type==='give').reduce((s,t)=>s+t.amt,0),ret=l.filter(t=>t.type==='ret').reduce((s,t)=>s+t.amt,0);
   return `<div class="card row" style="text-align:center"><div style="flex:1"><div class="mut">Total taken</div><b class="owe">${fmt(took)}</b></div><div style="flex:1"><div class="mut">Total returned</div><b class="clr">${fmt(ret)}</b></div><div style="flex:1"><div class="mut">Balance due</div><b style="font-size:18px">${fmt(took-ret)}</b></div></div>
   <div style="display:flex;gap:8px;margin:8px 0"><button id="add" style="flex:2">+ New entry</button><button class="ghost" id="stmt" style="flex:1">Share</button><button class="ghost" id="ren" style="flex:1">Rename</button></div>
+  ${took-ret>0.005?'<button id="full" class="ghost" style="width:100%;margin-bottom:6px;color:var(--grn);border-color:var(--grn)">✅ Returned in full ('+fmt(took-ret)+')</button>':''}
   <h2>Full history (newest first)</h2>
   ${rows.map(r=>`<div class="card row"><div><b class="${r.t.type==='give'?'owe':'clr'}">${r.t.type==='give'?'💸 Took':'✅ Returned'} ${fmt(r.t.amt)}</b><div class="mut">${r.t.date}${r.t.note?' · '+esc(r.t.note):''}</div></div><div style="text-align:right"><div class="mut">balance ${fmt(r.run)}</div><button class="ghost" data-edit="${r.t.id}" style="padding:4px 10px;margin-top:4px">Edit</button></div></div>`).join('')||'<div class="card mut">No entries for this team.</div>'}`;
 }
@@ -259,6 +283,7 @@ function backupTab(){
   setTimeout(()=>{
     $('#b_sync').onclick=()=>syncNow(true);$('#b_mail').onclick=emailBackup;$('#b_csv').onclick=shareCsv;
     $('#b_rest').onchange=e=>e.target.files[0]&&restoreFile(e.target.files[0]);
+    $('#b_pin').onclick=setPin;const pr=$('#b_pinx');if(pr)pr.onclick=clearPin;
     $('#b_code').onchange=e=>e.target.value.trim()&&setupCode(e.target.value);
     $('#b_em').onchange=e=>{db.email=e.target.value.trim();save(false);render()};
     $('#b_cur').onchange=e=>{db.cur=e.target.value.trim()||'SAR';save(false);render()};
@@ -273,6 +298,7 @@ function backupTab(){
   <button id="b_mail" style="width:100%">📧 Email backup to myself</button></div>
   <div class="card"><b>Excel / CSV report</b><div class="mut">All entries, opens in Excel or Google Sheets.</div><br><button id="b_csv" class="ghost" style="width:100%">Export CSV</button></div>
   <div class="card"><b>Restore from backup</b><div class="mut">New phone or lost data? Download the .json from your Gmail, then pick it here.</div><br><input type="file" id="b_rest" accept=".json,application/json"></div>
+  <div class="card"><b>🔒 PIN lock</b><div class="mut">Ask for a PIN when the app opens (this device only).</div><br><button id="b_pin" class="ghost" style="width:100%">${getPin()?'Change PIN':'Set PIN'}</button>${getPin()?'<button id="b_pinx" class="ghost" style="width:100%;margin-top:8px">Remove PIN</button>':''}</div>
   <div class="card"><b>My backup email</b><input id="b_em" type="email" value="${esc(db.email||'')}" placeholder="you@gmail.com"></div>
   <div class="card"><b>Currency label</b><input id="b_cur" value="${esc(db.cur)}"></div>
   <p class="mut">Data always works offline on this phone. Daily copies are also kept in your Drive. Still email a backup weekly.</p>`;
@@ -308,7 +334,23 @@ function setupCode(v){
 }
 
 
+/* ---------- PIN lock ---------- */
+const pinHash=p=>{let h=5381;for(const c of 'dt'+p)h=(h*33^c.charCodeAt(0))>>>0;return String(h)};
+const getPin=()=>{try{return localStorage.getItem('dt_pin')}catch(e){return null}};
+function showLock(){
+  if(!getPin()||document.getElementById('lock'))return;
+  const d=document.createElement('div');d.id='lock';
+  d.innerHTML='<div style="font-size:46px">🔒</div><div style="font-weight:700;font-size:18px">DT Tracker</div><input id="lp" type="password" inputmode="numeric" maxlength="8" placeholder="PIN"><div id="le" style="min-height:20px"></div>';
+  document.body.appendChild(d);const i=d.querySelector('#lp');i.focus();
+  i.oninput=()=>{if(pinHash(i.value)===getPin())d.remove();else if(i.value.length>=8){d.querySelector('#le').textContent='Wrong PIN';i.value=''}};
+}
+function setPin(){const p=prompt('Choose a PIN (4 to 8 digits). Leave empty to cancel.');if(!p)return;if(!/^\d{4,8}$/.test(p))return alert('Use 4 to 8 digits');try{localStorage.setItem('dt_pin',pinHash(p))}catch(e){}alert('PIN set ✔');render()}
+function clearPin(){const p=prompt('Enter current PIN to remove the lock');if(p&&pinHash(p)===getPin()){try{localStorage.removeItem('dt_pin')}catch(e){}alert('PIN removed');render()}else if(p)alert('Wrong PIN')}
+let hidAt=0;
+document.addEventListener('visibilitychange',()=>{if(document.hidden)hidAt=Date.now();else if(hidAt&&Date.now()-hidAt>60000)showLock()});
+
 /* ---------- boot ---------- */
+showLock();
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;view=null;render()});
 $('#fab').onclick=()=>entrySheet(null,view);
 render();
